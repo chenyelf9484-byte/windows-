@@ -141,29 +141,29 @@ class EngineTests(unittest.TestCase):
 
     def test_file_changed_refuses_overwrite(self):
         p = self.root/'a.txt'
-        p.write_text('旧公司')
+        p.write_text('旧公司', encoding='utf-8')
         r = scan_file(p, self.matcher)
-        p.write_text('用户更新')
+        p.write_text('用户更新', encoding='utf-8')
         out = save_file(r, 'direct')
         self.assertEqual(out.status, '失败')
-        self.assertEqual(p.read_text(), '用户更新')
+        self.assertEqual(p.read_text(encoding='utf-8'), '用户更新')
 
     def test_existing_copy_never_overwritten(self):
         p = self.root/'a.txt'
-        p.write_text('旧公司')
+        p.write_text('旧公司', encoding='utf-8')
         out = self.root/'out'
         out.mkdir()
-        (out/'a.txt').write_text('存在')
+        (out/'a.txt').write_text('存在', encoding='utf-8')
         result = save_file(scan_file(p, self.matcher), 'copy', out)
         self.assertEqual(result.status, '失败')
-        self.assertEqual((out/'a.txt').read_text(), '存在')
+        self.assertEqual((out/'a.txt').read_text(encoding='utf-8'), '存在')
 
     def test_exclude_dedupe_no_recursion_symlink(self):
         p = self.root/'a.txt'
-        p.write_text('旧公司')
+        p.write_text('旧公司', encoding='utf-8')
         child = self.root/'child'
         child.mkdir()
-        (child/'b.txt').write_text('旧公司')
+        (child/'b.txt').write_text('旧公司', encoding='utf-8')
         try:
             (self.root/'link').symlink_to(child, target_is_directory=True)
         except OSError:
