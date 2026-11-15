@@ -1,0 +1,7 @@
+{
+  "ignore_case": false,
+  "rules": [
+    {"source": "旧公司名称", "target": "新公司名称"},
+    {"source": "旧联系方式", "target": "新联系方式"}
+  ]
+}

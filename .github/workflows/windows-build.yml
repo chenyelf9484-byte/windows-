@@ -1,0 +1,33 @@
+name: Windows portable build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        edition: [core, ocr]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: x64
+      - name: Build core
+        if: matrix.edition == 'core'
+        shell: powershell
+        run: ./scripts/build_windows.ps1
+      - name: Build with OCR
+        if: matrix.edition == 'ocr'
+        shell: powershell
+        run: ./scripts/build_windows.ps1 -WithOCR
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DocReplace-win-x64-${{ matrix.edition }}
+          path: release/*.zip
+          if-no-files-found: error
