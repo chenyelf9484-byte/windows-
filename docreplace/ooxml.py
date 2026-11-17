@@ -27,13 +27,14 @@ def xml_text(s):
 
 
 def apply_patches(raw, patches):
-    last = len(raw)
-    for start, end, value in sorted(patches, reverse=True):
-        if end > last:
-            raise ValueError('文档修改区域重叠')
-        raw = raw[:start] + value + raw[end:]
-        last = start
-    return raw
+    cursor, chunks = 0, []
+    for start, end, value in sorted(patches):
+        if start < cursor or end < start or end > len(raw):
+            raise ValueError('文档修改区域重叠或越界')
+        chunks.extend((raw[cursor:start], value))
+        cursor = end
+    chunks.append(raw[cursor:])
+    return ''.join(chunks)
 
 
 def edited_nodes(texts, matches):
@@ -125,19 +126,25 @@ def excel_units(part, xml, shared, matcher):
         typ = re.search(r'\bt\s*=\s*[\'"]([^\'"]+)', attrs)
         typ = typ.group(1) if typ else ''
         if typ == 's':
-            v = re.search(r'<(?:[\w.-]+:)?v\b[^>]*>(\d+)</', body)
+            v = re.search(r'<(?:[\w.-]+:)?v\b[^>]*>(\d+)</(?:[\w.-]+:)?v\s*>', body)
             if not v:
                 continue
             textxml = shared[int(v.group(1))]
         elif typ == 'inlineStr':
-            textxml = body
+            payload = re.search(r'<(?P<tag>(?:[\w.-]+:)?is)\b[^>]*>.*?</(?P=tag)\s*>', body, re.S)
+            if not payload:
+                continue
+            textxml = payload.group(0)
         elif typ == 'str':
-            v = re.search(r'<(?:[\w.-]+:)?v\b[^>]*>(.*?)</', body, re.S)
+            v = re.search(r'<(?:[\w.-]+:)?v\b[^>]*>(.*?)</(?:[\w.-]+:)?v\s*>', body, re.S)
             if not v:
                 continue
             textxml = '<t>%s</t>' % v.group(1)
         else:
             continue
+        # 拼音标注不属于可见正文；正文变化后删除失效的读音范围。
+        phonetic = re.compile(r'<(?P<tag>(?:[\w.-]+:)?rPh)\b[^>]*>.*?</(?P=tag)\s*>', re.S)
+        textxml = phonetic.sub('', textxml)
         ts = list(TOKEN.finditer(textxml))
         texts = [xml_text(t.group('value')) for t in ts]
         before = ''.join(texts)
@@ -156,8 +163,11 @@ def excel_units(part, xml, shared, matcher):
             inner = '<t xml:space="preserve">%s</t>' % escape(matcher.replace(before))
         prefix = cell.group('tag')[:-1]
         attrs = re.sub(r'\s+t\s*=\s*([\'"]).*?\1', '', attrs)
-        replacement = '<%s%s t="inlineStr"><%sis>%s</%sis></%s>' % (
-            cell.group('tag'), attrs, prefix, inner, prefix, cell.group('tag'))
+        inline = '<%sis>%s</%sis>' % (prefix, inner, prefix)
+        target = payload if typ == 'inlineStr' else v
+        new_body = body[:target.start()] + inline + body[target.end():]
+        replacement = '<%s%s t="inlineStr">%s</%s>' % (
+            cell.group('tag'), attrs, new_body, cell.group('tag'))
         address = re.search(r'\br\s*=\s*[\'"]([^\'"]+)', attrs)
         label = address.group(1) if address else str(index+1)
         out.append(Unit(part+':'+label, part+' / '+label, before, matcher.replace(before), len(hits),

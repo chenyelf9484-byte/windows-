@@ -1,7 +1,7 @@
-# 文档替换工具 0.1.0
+# 文档替换工具 0.1.1
 
 Windows 10 x64 便携 EXE 项目。直接扫描磁盘、文件夹或文件，预览后批量替换。
-当前提供源码、自动测试、Windows 打包脚本；当前 macOS 环境尚未生成或运行 Windows EXE。
+已提供源码、自动测试和 Windows 自动构建。上一版已通过 Windows Server 2022 打包及 EXE 自检；Windows 10 与 Office/WPS 人工排版验收仍待完成。
 
 ## 已实现
 

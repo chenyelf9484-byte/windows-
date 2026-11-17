@@ -1,3 +1,4 @@
+import importlib.util
 import copy
 import datetime
 import io
@@ -28,6 +29,7 @@ class App(tk.Tk):
         self.events = queue.Queue()
         self.busy = False
         self.control = Control()
+        self.ocr_available = importlib.util.find_spec('rapidocr_onnxruntime') is not None
         self.ocr = tk.BooleanVar(value=False)
         self.embedded = tk.BooleanVar(value=True)
         self.standalone = tk.BooleanVar(value=False)
@@ -127,7 +129,7 @@ class App(tk.Tk):
         self.exclusions.pack(fill='x', pady=6)
         line = ttk.Frame(p)
         line.pack(fill='x', pady=5)
-        ttk.Checkbutton(line, text='启用图片识别（默认关闭）', variable=self.ocr, command=self.ocr_toggle).pack(side='left')
+        ttk.Checkbutton(line, text='启用图片识别（默认关闭）', variable=self.ocr, command=self.ocr_toggle, state='normal' if self.ocr_available else 'disabled').pack(side='left')
         self.embedded_check = ttk.Checkbutton(line, text='文档内图片', variable=self.embedded, state='disabled')
         self.embedded_check.pack(side='left', padx=15)
         self.standalone_check = ttk.Checkbutton(line, text='独立图片', variable=self.standalone, state='disabled')
@@ -307,6 +309,8 @@ class App(tk.Tk):
                 raise ValueError('扩展名列表为空或包含不支持的格式：'+str(extensions-SUPPORTED))
             if not self.ocr.get():
                 extensions -= IMAGES
+            if not extensions:
+                raise ValueError('关闭图片识别后没有可扫描格式，请选择文档格式或启用 OCR')
             scan_args = {'recursive': self.recursive.get(), 'extensions': extensions,
                          'max_mb': float(self.max_mb.get()), 'min_mb': float(self.min_mb.get()),
                          'modified_after': datetime.datetime.strptime(self.date_after.get(), '%Y-%m-%d').timestamp() if self.date_after.get() else 0,
@@ -478,7 +482,7 @@ class App(tk.Tk):
         result, unit = self.rows[row]
         try:
             from PIL import Image, ImageTk, ImageDraw
-            from .ocr import render
+            from .ocr import render, load_image
             part = unit.payload['part']
             if Path(result.path).suffix.lower() in IMAGES:
                 data = Path(result.path).read_bytes()
@@ -521,7 +525,7 @@ class App(tk.Tk):
                                 if u is unit or (u.kind == 'image' and u.selected and u.payload['part'] == part
                                                  and not u.payload.get('replacement') and not work.payload.get('replacement'))]
                     after = render(data, combined, font_var.get(), fg.get(), bg.get())
-                    original = Image.open(io.BytesIO(data)).convert('RGB')
+                    original = load_image(data)
                     ImageDraw.Draw(original).rectangle((work.payload['box'][0][0], work.payload['box'][0][1], work.payload['box'][2][0], work.payload['box'][2][1]), outline='red', width=3)
                     images = [original, Image.open(io.BytesIO(after)).convert('RGB')]
                     canvas.delete('all')

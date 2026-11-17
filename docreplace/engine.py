@@ -87,7 +87,7 @@ def enumerate_files(roots, recursive=True, excluded=(), extensions=None, max_mb=
         for path in paths:
             if control and not control.checkpoint():
                 return
-            if blocked(path) or path.suffix.lower() not in (extensions or SUPPORTED):
+            if blocked(path) or path.suffix.lower() not in (SUPPORTED if extensions is None else extensions):
                 continue
             try:
                 key = os.path.normcase(str(path.resolve()))
